@@ -34,7 +34,6 @@ func RetrieveROM(filename string) ([]byte, error) {
 	return bytes, err
 }
 
-// TEST: Using compress/zlib
 func read_segment_zlib(data []byte, from, to int) ([]byte, error) {
 	b := bytes.NewReader(data[from : from+to])
 	z, err := zlib.NewReader(b)
@@ -49,7 +48,6 @@ func read_segment_zlib(data []byte, from, to int) ([]byte, error) {
 	return p, nil
 }
 
-// TEST: Using compress/flate
 func read_segment_flate(data []byte, from, to int) ([]byte, error) {
 	b := bytes.NewReader(data[from : from+to])
 	z := flate.NewReader(b)
@@ -70,10 +68,11 @@ func initiate_logger() log.Logger {
 	return *logger
 }
 
-func process_streams(fileContent []byte, logger log.Logger) {
+func process_streams(fileContent []byte, logger log.Logger) string {
 	streamMarker := []byte("stream")
 	endstreamMarker := []byte("endstream")
 
+	text_content := ""
 	startIdx := 0
 	for {
 		startStream := bytes.Index(fileContent[startIdx:], streamMarker)
@@ -97,21 +96,37 @@ func process_streams(fileContent []byte, logger log.Logger) {
 
 		content, err := read_segment_zlib(streamData, 0, len(streamData))
 		if err != nil {
-			logger.Warnf("Zlib decompression failed: %v, trying flate...", err)
+			logger.Warnf("Zlib decompression failed: %d-%d:%v, trying flate...", startIdx, endStream, err)
 
 			content, err = read_segment_flate(streamData, 0, len(streamData))
 			if err != nil {
-				logger.Error("Flate decompression also failed:", err)
+				logger.Errorf("Flate decompression also failed: %d-%d:%v", startIdx, endStream, err)
 				startIdx = endStream + len(endstreamMarker)
 				continue
 			}
 		}
 
-		fmt.Println("Decompressed content from stream:")
-		fmt.Println(string(content))
+		// fmt.Println("Decompressed content from stream:")
+		// fmt.Println(string(content))
+
+		content2 := string(content)
+		for j := 0; j < len(content2); j++ {
+			if content2[j] == '(' {
+				j++
+				for ; j < len(content2); j++ {
+					if content2[j] == ')' {
+						break
+					}
+					text_content += string(content2[j])
+					// append to a dummy string
+				}
+			}
+		}
 
 		startIdx = endStream + len(endstreamMarker)
 	}
+
+	return text_content
 }
 
 func main() {
@@ -124,7 +139,8 @@ func main() {
 		return
 	}
 
-	process_streams(file_content, log)
+	text := process_streams(file_content, log)
+	fmt.Println(text)
 
 	return
 }
