@@ -1,7 +1,9 @@
 package main
 
+// TODO: Update the parser to use objdefs and parse the entire pdf-file into the memory in an object.
+// TODO: Implement parsing of images.
+
 import (
-	// "compress/zlib"
 	"bufio"
 	"bytes"
 	"compress/flate"
